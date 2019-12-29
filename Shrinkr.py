@@ -1,15 +1,61 @@
 #!/usr/bin/env python3.7
 # -*- coding: utf-8 -*-
 
+# Shrinkr
+# https://github.com/nuket/shrinkr
+# 
+# This script will batch transcode a source set of video files to a target set 
+# of proxy video files at a lower resolution.
+# 
+# If the proxy video file already exists and matches the duration of the source
+# video file, then this script will not do the transcode again, which means you
+# can run this script over and over again on a folder and only the new files that 
+# need transcoding will be processed.
+
+# Shrinkr
+# Copyright (c) 2019 - 2020 Max Vilimpoc
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in
+# all copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+# THE SOFTWARE.
+
 # This script requires:
 # - Python 3.7 (for the capture_output param)
-
-# Since my computer is from the pre-Skylake generation, playback of HEVC coded
-# video is impossibly slow and editing is impossible.
 #
+# Also, it's time for Python 2 to go away.
+
+# Rationale
+#
+# Since my computer is from the pre-Skylake generation, playback of HEVC-encoded
+# video is impossibly slow and editing is impossible without extra hardware support
+# or an additional discrete graphics card.
+#
+# ffmpeg doesn't quite have a feature that lets it overwrite incomplete transcodes
+# and preserve completed files, it is all-or-nothing when using *.mp4-style globs.
+#
+# This script gives a little more flexibility when trying to transcode files down
+# to editable or even viewable sizes.
+
 # This script will:
-# - Load the transcoding cache file (JSON list of filenames and file date + size)
+# - Load the configuration file
 # - Scan the input folders for files matching the glob (*.mp4, etc.)
+# - 
+# - Load the transcoding cache file (JSON list of filenames and file date + size)
+
 # - Check for files matching the video codec
 # - Scan the input folders for files in process
 # - Scale the files down
@@ -92,14 +138,30 @@ def main():
     input_exts    = ['*.mp4', '*.mkv']
     input_codecs  = ['hevc']
 
-    # Output file identifiers
+    # Output files will have this string in them to identify them to Shrinkr.
+    # If an input file has this string in its name, it will be skipped.
+    #
+    # This means that Shrinkr will do its best to avoid reprocessing files
+    # that it has already processed.
+    #
+    # It also implies that transcoding a transcoded file should not happen, 
+    # meaning that Shrinkr always tries to use the highest-res source material
+    # possible (i.e. the original high-res video file).
 
-    output_file_suffixes = ['-proxy']
+    OUTPUT_FILE_SUFFIX = 'shrinkr'
 
     # Output file profiles
+    #
+    # Very loose about this, almost any freeform ffmpeg command line can be put here.
+    #
+    # There are a number of keys that Shrinkr supplies for string substitution:
+    # 
+    # - {input}
+    # - {output} 
 
     output_profiles = { 
-        'x264-640': 'ffmpeg -i {input} -c:v libx264 -profile:v main -filter:v "scale=640:-1" -b:v 8M -c:a copy {output}',
+        'x264-mp4-640': 'ffmpeg -i {input} -c:v libx264 -profile:v main -filter:v "scale=640:-1" -b:v 8M -c:a copy {output}',
+        'huffyuv-640': '',
     }
 
     output_profile   = 'x264-640'
@@ -111,7 +173,7 @@ def main():
 
     # Parse arguments
 
-    parser = argparse.ArgumentParser(description='Transcode a bunch of videos into smaller proxy files.')
+    parser = argparse.ArgumentParser(description='Transcode a bunch of videos into smaller proxy files for easier viewing and editing.')
     parser.add_argument('--sum-durations', dest='sum_durations', action='store_true')
     args = parser.parse_args()
 
