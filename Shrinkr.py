@@ -1,7 +1,7 @@
 #!/usr/bin/env python3.7
 # -*- coding: utf-8 -*-
 
-# Shrinkr
+# Shrinkr Batch Transcode
 # https://github.com/nuket/shrinkr
 # 
 # This script will batch transcode a source set of video files to a target set 
@@ -12,7 +12,7 @@
 # can run this script over and over again on a folder and only the new files that 
 # need transcoding will be processed.
 
-# Shrinkr
+# Shrinkr Batch Transcode
 # Copyright (c) 2019 - 2020 Max Vilimpoc
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -34,15 +34,14 @@
 # THE SOFTWARE.
 
 # This script requires:
-# - Python 3.7 (for the capture_output param)
-#
-# Also, it's time for Python 2 to go away.
+# - Python 3.7 (for the subprocess capture_output param)
 
 # Rationale
 #
 # Since my computer is from the pre-Skylake generation, playback of HEVC-encoded
 # video is impossibly slow and editing is impossible without extra hardware support
-# or an additional discrete graphics card.
+# or an additional discrete graphics card (which I'll buy eventually, just not 
+# this instant).
 #
 # ffmpeg doesn't quite have a feature that lets it overwrite incomplete transcodes
 # and preserve completed files, it is all-or-nothing when using *.mp4-style globs.
@@ -53,13 +52,10 @@
 # This script will:
 # - Load the configuration file
 # - Scan the input folders for files matching the glob (*.mp4, etc.)
-# - 
 # - Load the transcoding cache file (JSON list of filenames and file date + size)
-
 # - Check for files matching the video codec
 # - Scan the input folders for files in process
-# - Scale the files down
-# - Reencode them to a specific output_profile
+# - Transcode and rescale the files to a specific output profile
 #
 # Need:
 # - --dry-run (print the files that need transcoding)
@@ -71,50 +67,120 @@ import json
 import logging
 import os
 import subprocess
+import sys
+import textwrap
+import time
+
+SHRINKR_CACHE_FILENAME           = 'ShrinkrCache.json'
+SHRINKR_OUTPUT_PROFILES_FILENAME = 'ShrinkrOutputProfiles.json'
+
+# Output files will have this string in them to identify them to Shrinkr.
+# If an input file has this string in its name, it will be skipped.
+#
+# This means that Shrinkr will do its best to avoid reprocessing files
+# that it has already processed.
+#
+# It also implies that transcoding a transcoded file should not happen, 
+# meaning that Shrinkr always tries to use the highest-res source material
+# possible (i.e. the original high-res video file).
+
+SHRINKR_OUTPUT_FILE_SUFFIX = 'shrinkr'
 
 
-def get_file_info(media_file):
-    probe_cmd = 'ffprobe -v quiet -print_format json -show_streams -select_streams v:0'.split(' ')
-    probe_cmd.append(media_file)
+# def get_cached_file_info(filename):
+#     if filename in file_info_cache.keys():
+#         if 'datetime' in file_info_cache[filename].keys():
+#             if (os.path.getmtime(filename) == file_info_cache[filename]['datetime']):
+#                 if 'ffprobe_data' in file_info_cache[filename].keys():
+#                     return file_info_cache[filename]['ffprobe_data']
+#
+#     return {}
 
-    process_output = subprocess.run(args=probe_cmd, capture_output=True)
-    logging.debug(process_output)
 
+def get_cached_file_info(filename, cache):
+    try:
+        if (os.path.getmtime(filename) == cache[filename]['datetime']):
+            return cache[filename]['ffprobe_data']
+    except:
+        pass
+
+    return {}
+
+
+def get_file_info(filename, cache):
     file_info = {}
+    file_info['file_name']  = filename
+    file_info['file_size']  = os.path.getsize(filename)
+    file_info['codec_name'] = 'Unknown'
+    file_info['width']      = 'Unknown'
+    file_info['height']     = 'Unknown'
+    file_info['duration']   = 0
 
-    if process_output.returncode == 0:
-        stream_info = json.loads(process_output.stdout)
-        logging.debug(stream_info)
+    stream_info = get_cached_file_info(filename, cache)
 
+    if not stream_info:
+        probe_cmd = 'ffprobe -v quiet -print_format json -show_streams -select_streams v:0'.split(' ')
+        probe_cmd.append(filename)
+
+        process_output = subprocess.run(args=probe_cmd, capture_output=True)
+        logging.debug(process_output)
+
+        if process_output.returncode == 0:
+            stream_info = json.loads(process_output.stdout)
+            logging.debug(stream_info)
+
+            # Save the ffprobe output to the cache file
+            cache[filename] = {}
+            cache[filename]['datetime']     = os.path.getmtime(filename)
+            cache[filename]['ffprobe_data'] = stream_info
+
+            with open(SHRINKR_CACHE_FILENAME, mode='w') as cache_fp:
+                json.dump(cache, cache_fp)
+
+    if 'streams' in stream_info.keys():
         this_file = stream_info['streams'][0]
         logging.debug(this_file)
 
-        file_info['file_name']   = media_file
-        file_info['codec_name']  = this_file['codec_name']
-        file_info['width']       = this_file['width']
-        file_info['height']      = this_file['height']
-        file_info['duration']    = this_file['duration']
-        file_info['file_size']   = os.path.getsize(media_file)
-    else:
-        file_info['duration']    = 0
+        file_info['codec_name']   = this_file['codec_name']
+        file_info['width']        = this_file['width']
+        file_info['height']       = this_file['height']
+
+        try:
+            file_info['duration'] = this_file['duration']
+        except:
+            pass
 
     return file_info
 
 
+def get_file_duration(filename, cache):
+    try:
+        info = get_file_info(filename, cache)
+        return float(info['duration'])
+    except:
+        pass
+
+    return 0.0
+
+
 def get_output_file_name(input_file_name, output_profile, output_container):
     basename = os.path.splitext(input_file_name)[0]
-    output_file_name = '{basename}-proxy-{profile}.{container}'.format(basename=basename, profile=output_profile, container=output_container)
+    output_file_name = '{basename}-{tag}-{profile}.{container}'.format(basename=basename, tag=SHRINKR_OUTPUT_FILE_SUFFIX, profile=output_profile, container=output_container)
 
     return output_file_name
 
 
-def file_needs_transcoding(input_file_name, output_profile, output_container):
-    output_file_name = get_output_file_name(input_file_name, output_profile, output_container)
+# def file_needs_transcoding(input_file_name, output_profiles, output_containers):
+#     input_file_info = get_file_info(input_file_name)
 
-    if not os.path.isfile(output_file_name) or (float(get_file_info(output_file_name)['duration']) < float(get_file_info(input_file_name)['duration'])):
-        return True
 
-    return False
+
+#     output_file_name = get_output_file_name(input_file_name, output_profile, output_container)
+
+#     if not os.path.isfile(output_file_name) or (float(get_file_info(output_file_name)['duration']) < float(get_file_info(input_file_name)['duration'])):
+#         return True
+
+#     return False
 
 
 def sum_up(input_file_names):
@@ -131,24 +197,47 @@ def sum_up(input_file_names):
     return sum
 
 
+def file_matches_selectors(input_file_name, cache, select_codecs, select_heights):
+    file_info = get_file_info(input_file_name, cache)
+
+    if file_info['codec_name'] in select_codecs and file_info['height'] in select_heights:
+        return True
+
+    return False
+
+
+def generate_transcode_commands(input_file_names, cache, target_output_profiles, output_profile_defs):
+    transcode_commands = []
+
+    for input_file_name in input_file_names:
+        for profile in target_output_profiles:
+            if profile in output_profile_defs.keys():
+                output_file_name = get_output_file_name(input_file_name, profile, output_profile_defs[profile]['container'])
+                transcode_command = str(output_profile_defs[profile]['command']).format(input=input_file_name, output=output_file_name)
+
+                input_duration  = get_file_duration(input_file_name, cache)
+                output_duration = get_file_duration(output_file_name, cache)
+
+                if not os.path.isfile(output_file_name) or (output_duration < input_duration):
+                    transcode_commands.append(transcode_command)
+                else:
+                    logging.info('File "{input}" has already been transcoded to {profile}'.format(input=input_file_name, profile=profile))
+            else:
+                logging.warning('Profile "{profile}" not a valid profile in {profile_defs_file}.', profile=profile, profile_defs_file=SHRINKR_OUTPUT_PROFILES_FILENAME)
+                
+    return transcode_commands
+
+
 def main():
-    # Input file selectors
-
-    input_folders = list(map(os.path.expanduser, ['~/Downloads', '~/Videos']))
-    input_exts    = ['*.mp4', '*.mkv']
-    input_codecs  = ['hevc']
-
-    # Output files will have this string in them to identify them to Shrinkr.
-    # If an input file has this string in its name, it will be skipped.
+    # Load the cached video information from previous ffprobe runs.
     #
-    # This means that Shrinkr will do its best to avoid reprocessing files
-    # that it has already processed.
-    #
-    # It also implies that transcoding a transcoded file should not happen, 
-    # meaning that Shrinkr always tries to use the highest-res source material
-    # possible (i.e. the original high-res video file).
+    # If the file datetime didn't change, use the cached information
+    # otherwise, run ffprobe again and cache that.
 
-    OUTPUT_FILE_SUFFIX = 'shrinkr'
+    file_info_cache = {}
+
+    with open(SHRINKR_CACHE_FILENAME) as cache_fp:
+        file_info_cache = json.load(cache_fp)
 
     # Output file profiles
     #
@@ -159,85 +248,88 @@ def main():
     # - {input}
     # - {output} 
 
-    output_profiles = { 
-        'x264-mp4-640': 'ffmpeg -i {input} -c:v libx264 -profile:v main -filter:v "scale=640:-1" -b:v 8M -c:a copy {output}',
-        'huffyuv-640': '',
-    }
-
-    output_profile   = 'x264-640'
-    output_container = 'mp4'
-
-    # Logging settings
-
-    logging_level = logging.INFO
+    output_profile_defs = json.load(open("ShrinkrOutputProfiles.json"))
 
     # Parse arguments
 
-    parser = argparse.ArgumentParser(description='Transcode a bunch of videos into smaller proxy files for easier viewing and editing.')
-    parser.add_argument('--sum-durations', dest='sum_durations', action='store_true')
+    parser = argparse.ArgumentParser(
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        description=textwrap.dedent('''\
+            Transcode a bunch of videos into smaller proxy video files 
+            for easier viewing and editing, without doing work multiple times.
+            
+            Safety first: 
+            Pass the --go option to actually run the generated transcoder commands!
+            '''))
+    parser.add_argument('--go', action='store_true', help='actually run the transcoder commands (default: %(default)s)')
+    parser.add_argument('--jobfile', default='ShrinkrJob.json', help='specify other jobfile (default: %(default)s)')
+    parser.add_argument('-v', default=0, type=int, help='set the debug output level (0 = INFO, 1 = DEBUG) (default: %(default)s)')
+    parser.add_argument('--sum-durations', action='store_true', help='Sum up the durations of all the input files')
+    parser.add_argument('--fix-timestamps', action='store_true', help='go through and set the timestamps of the transcoded files to the timestamps of the original files')
+
+    if len(sys.argv[1:]) == 0:
+        parser.print_help()
+
     args = parser.parse_args()
 
-    logging.basicConfig(level=logging_level)
+    if args.v == 1:
+        logging.basicConfig(level=logging.DEBUG)
+    else:
+        logging.basicConfig(level=logging.INFO)
 
-    logging.debug(input_folders)
+    job = json.load(open(args.jobfile))
+
+    # Input file selectors
+
+    input_folders = list(map(os.path.expanduser, job['input_folders']))
+    input_folders = list(map(os.path.normpath, input_folders))
 
     # Get the list of all of the usable input files
 
-    input_globs = list(itertools.product(input_folders, input_exts))
+    input_globs = list(itertools.product(input_folders, job['input_exts']))
     input_globs = list(map(list, input_globs))
     input_globs = [os.path.join(*x) for x in input_globs]
 
-    logging.debug(input_globs)
-
     input_file_names = [glob.glob(x) for x in input_globs]
     input_file_names = list(itertools.chain.from_iterable(input_file_names))
-    input_file_names = [x for x in input_file_names if x.rfind('-proxy') == -1]
+    input_file_names = [x for x in input_file_names if x.rfind(SHRINKR_OUTPUT_FILE_SUFFIX) == -1] # Don't process files containing SHRINKR_OUTPUT_FILE_SUFFIX
     input_file_names.sort()
-
-    logging.debug(input_file_names)
 
     # What's the total duration of all the files to be transcoded?
     if args.sum_durations:
         logging.info('Total duration of files is: {0} seconds'.format(sum_up(input_file_names)))
         return
 
-    # Start checking the previously-unseen or modified files for the video
-    # parameters.
+    # Start checking the list of input files and only keep the ones that 
+    # match the input selectors
     #
     # Duration: 00:01:04.29, start: 0.000000, bitrate: 100072 kb/s
     # Stream #0:0(eng): Video: hevc (Main) (hvc1 / 0x31637668), yuvj420p(pc, smpte170m), 3840x2160, 100024 kb/s, SAR 1:1 DAR 16:9, 30.02 fps, 30 tbr, 90k tbn, 90k tbc (default)
 
-    for input_file_name in input_file_names:
-        # input_file_info = get_file_info(input_file_name)
+    start = time.perf_counter()
 
-        # logging.info(input_file_info)
+    # Filter out the input files that don't match the Codec or Height we want to transcode
 
-        # output_file = '{basename}-proxy-{profile}.{container}'.format(basename=os.path.splitext(input_file_name)[0], profile=output_profile, container=output_container)
+    filtered_input_file_names = [x for x in input_file_names if file_matches_selectors(x, file_info_cache, job['select_codecs'], job['select_heights'])]
 
-        # Check whether this video has been transcoded already for the 
-        # specified output profile.
+    end = time.perf_counter()
+    logging.debug(end - start)
 
-        # if not os.path.isfile(output_file) or (get_file_info(output_file)['duration'] != input_file_info['duration']):
-        #     logging.info('Need to transcode this file.')
-        #     logging.info('ffmpeg -i {input} -c:v libx264 -profile:v baseline -filter:v "scale=640:-1" -b:v 8M -c:a copy {output}'.format(input=input_file_name, output=output_file))
+    # Create a list of input -> output transcoder commands based on desired output profiles and containers
+    #
+    # number of output files = (number of input files * number of desired output profiles) - number of already transcoded files
 
-            # output_file_info = get_file_info(output_file)
+    transcode_commands = generate_transcode_commands(filtered_input_file_names, file_info_cache, job['output_profiles'], output_profile_defs)
 
-        # input_file_info['output_file'] = output_file
-        # input_file_info['output_file_duration'] = 0
+    if not args.go:
+        print()
+        print('Shrinkr -------------------------------------------------------------')
+        print('Dry Run -- these are the transcoding commands that would be executed:')
+        print('---------------------------------------------------------------------')
+        print()
+        [print(c) for c in transcode_commands]
 
-        if file_needs_transcoding(input_file_name, output_profile, output_container):
-            logging.info('File ({0}) needs transcoding.'.format(input_file_name))
 
-            output_file_name = get_output_file_name(input_file_name, output_profile, output_container)
-            transcode_cmd    = 'ffmpeg -i {input} -c:v libx264 -profile:v main -filter:v scale=640:-1 -b:v 8M -c:a copy {output}'.format(input=input_file_name, output=output_file_name)
-            transcode_cmd    = transcode_cmd.split(' ')
-            logging.debug(transcode_cmd)
-            
-            process_output = subprocess.run(args=transcode_cmd, capture_output=False)
-            logging.debug(process_output)
-        else:
-            logging.info('File ({0}) has already been transcoded to desired output profile and container format.'.format(input_file_name))
 
 
 if __name__ == '__main__':

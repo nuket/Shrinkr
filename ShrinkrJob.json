@@ -1,0 +1,9 @@
+{
+    "input_folders": ["~/Downloads/Vid", "~/Videos/FirstOne"],
+    "input_exts": ["*.mp4", "*.mov", "*.mkv"],
+
+    "select_codecs": ["hevc"],
+    "select_heights": [2160],
+
+    "output_profiles": ["x264-mp4-360p", "utvideo-mkv-360p"]
+}

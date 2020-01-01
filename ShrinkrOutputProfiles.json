@@ -1,0 +1,12 @@
+{ 
+    "x264-mp4-360p":
+    {
+        "command": "ffmpeg -i {input} -c:v libx264 -profile:v main -filter:v \"scale=-2:360\" -b:v 4M -c:a copy {output}",
+        "container": "mp4"
+    },
+    "utvideo-mkv-360p":
+    {
+        "command": "ffmpeg -i {input} -c:v utvideo -filter:v \"scale=-2:360\" -c:a copy {output}",
+        "container": "mkv"
+    }
+}

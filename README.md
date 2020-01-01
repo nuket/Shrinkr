@@ -1,6 +1,6 @@
 # Shrinkr
 
-This script will batch transcode a source set of video files to a target set 
+This script batch transcodes a source set of video files to a target set 
 of proxy video files at a lower resolution.
 
 If the proxy video file already exists and matches the duration of the source
@@ -23,7 +23,7 @@ Codec(s) and Resolution(s).
 
 By default, if no config file is specified, the script will run on the
 current working directory (cwd) and convert all 2160p HEVC files to 
-540p  proxy videos.
+540p proxy videos.
 
 The script will set the Date and Time values of the proxy video file 
 to be identical to the source file values, so that sorting by Date Modified 
