@@ -36,19 +36,6 @@
 # This script requires:
 # - Python 3.7 (for the subprocess capture_output param)
 
-# Rationale
-#
-# Since my computer is from the pre-Skylake generation, playback of HEVC-encoded
-# video is impossibly slow and editing is impossible without extra hardware support
-# or an additional discrete graphics card (which I'll buy eventually, just not 
-# this instant).
-#
-# ffmpeg doesn't quite have a feature that lets it overwrite incomplete transcodes
-# and preserve completed files, it is all-or-nothing when using *.mp4-style globs.
-#
-# This script gives a little more flexibility when trying to transcode files down
-# to editable or even viewable sizes.
-
 # This script will:
 # - Load the configuration file
 # - Scan the input folders for files matching the glob (*.mp4, etc.)
@@ -74,8 +61,8 @@ SHRINKR_OUTPUT_PROFILES_FILENAME = 'ShrinkrOutputProfiles.json'
 # Output files will have this string in them to identify them to Shrinkr.
 # If an input file has this string in its name, it will be skipped.
 #
-# This means that Shrinkr will do its best to avoid reprocessing files
-# that it has already processed.
+# Shrinkr will do its best to avoid reprocessing files that it has already 
+# processed.
 #
 # It also implies that transcoding a transcoded file should not happen, 
 # meaning that Shrinkr always tries to use the highest-res source material

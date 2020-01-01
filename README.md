@@ -1,6 +1,7 @@
-# Shrinkr
+<span style="display: block; text-align:center;"><img src="ShrinkrLogo.svg"/></span>
+# Shrinkr Batch Transcode
 
-This script batch transcodes a source set of video files to a target set 
+This Python script batch transcodes a source set of video files to a target set 
 of proxy video files at a lower resolution.
 
 ```
@@ -20,18 +21,23 @@ optional arguments:
                      (default: 0)
 ```
 
-If the proxy video file already exists and matches the duration of the source
+If the transcoded video file already exists and matches the duration of the source
 video file, then this script will not do the transcode again, which means you
 can run this script over and over again on a folder and only the new files that 
-need transcoding will be processed.
+need conversion will be processed.
 
 ## 5 Steps
 
-1. Add `ffmpeg` transcoding commands you would like to use to `ShrinkrOutputProfiles.json`
+1. Read `ShrinkrOutputProfiles.json`, add new `ffmpeg` commands if needed
 1. Edit `ShrinkrJob.json`
 1. Run `python Shrinkr.py` to see which files it will transcode (dry run)
 1. Run `python Shrinkr.py --go` to transcode those files
 1. Add files to the video folders, rinse and repeat.
+
+## Prerequisites
+
+1. [Python 3](https://www.python.org/downloads/)
+1. ffmpeg in the PATH &mdash; [Windows](https://ffmpeg.zeranoe.com/builds/), [macOS](https://formulae.brew.sh/formula/ffmpeg), [Ubuntu](https://snapcraft.io/ffmpeg)
 
 ## How It Works
 
@@ -48,11 +54,11 @@ Codec(s) and Resolution(s).
 
 The script will set the Last Modified time of each transcoded video file 
 to the timestamp from the source video file, so that sorting by Date Modified 
-in Windows Explorer will show the two files next to one another.
+in Windows Explorer, macOS Finder, or GNOME Files will show the two files next to one another.
 
-## Config File
+## Job File
 
-The config file is in JSON format and looks something like this and 
+The default job file `ShrinkrJob.json` looks like this and 
 the fields should be pretty self-explanatory:
 
 ```json
@@ -67,21 +73,23 @@ the fields should be pretty self-explanatory:
 }
 ```
 
-## Rationale
+`input_folders`: The list of folders containing files to transcode. 
+The `~` symbol will automatically be replaced with the User's Home Folder 
+path on both Windows, Linux, and macOS.
 
-Since my computer is from the pre-Skylake generation, playback of HEVC-encoded
-video is impossibly slow and editing is impossible without extra hardware support
-or an additional discrete graphics card.
+`input_exts`: The list of file types to transcode.
 
-This script lets me more easily trade storage for processing time.
+`select_codecs`: The list of input video codecs to transcode.
 
-ffmpeg doesn't quite have a feature that lets it intelligently redo incomplete transcodes
-and preserve completed files, it is all-or-nothing when using *.mp4-style globs.
+`select_heights`: The list of input video heights to transcode.
 
-This script gives a little more flexibility when trying to transcode files down
-to editable or even viewable sizes. Without [Gen9 Intel Graphics](https://en.wikipedia.org/wiki/Intel_Graphics_Technology#Capabilities_(GPU_video_acceleration)), [Nvidia PureVideo 7](https://en.wikipedia.org/wiki/Nvidia_PureVideo#The_seventh_generation_PureVideo_HD), or [AMD Unified Video Decoder (UVD6)](https://en.wikipedia.org/wiki/Unified_Video_Decoder#UVD_6) GPU acceleration, even a beefy CPU will have trouble smoothly playing back H.265/HEVC-encoded video.
+`output_profiles`: The list of target transcoding profiles defined in the `ShrinkrOutputProfiles.json` file.
+
+To tell Shrinkr to load a custom Job File, use the command-line option `--jobfile YourCustomJob.json`.
 
 ## Sample Output
+
+By default, `Shrinkr.py` will load the default job file `ShrinkrJob.json` and process its specified files.
 
 ```
 C:\Shrinkr>\Python37\python.exe Shrinkr.py --go
@@ -207,11 +215,29 @@ Done
 Set transcoded file's Date Modified to Sat Jul 13 16:00:17 2019
 ```
 
+## Rationale
+
+Since my computer is from the pre-Skylake generation, playback of HEVC-encoded
+video is impossibly slow and editing is impossible without extra hardware support
+or an additional discrete graphics card. (Which I'll buy eventually, just not 
+this instant.)
+
+This script lets me more easily trade storage for processing time.
+
+`ffmpeg` doesn't quite have a feature that lets it intelligently redo incomplete transcodes
+and preserve completed files, it is all-or-nothing when using *.mp4-style globs.
+
+This script gives a little more flexibility when trying to transcode files down
+to editable or even viewable sizes. Without [Gen 9 Intel Graphics](https://en.wikipedia.org/wiki/Intel_Graphics_Technology#Capabilities_(GPU_video_acceleration)), 
+[Nvidia PureVideo 7](https://en.wikipedia.org/wiki/Nvidia_PureVideo#The_seventh_generation_PureVideo_HD), 
+or [AMD Unified Video Decoder 6](https://en.wikipedia.org/wiki/Unified_Video_Decoder#UVD_6) fixed-function hardware acceleration, 
+even a beefy CPU will have trouble smoothly playing back H.265 / HEVC-encoded video.
+
 ## License
 
 ```
-Shrinkr
-Copyright (c) 2019 - 2020 Max Vilimpoc
+Shrinkr Batch Transcode
+Copyright (c) 2019 - 2020 Max Vilimpoc (https://vilimpoc.org)
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
