@@ -54,11 +54,7 @@
 # - Scan the input folders for files matching the glob (*.mp4, etc.)
 # - Load the transcoding cache file (JSON list of filenames and file date + size)
 # - Check for files matching the video codec
-# - Scan the input folders for files in process
 # - Transcode and rescale the files to a specific output profile
-#
-# Need:
-# - --dry-run (print the files that need transcoding)
 
 import argparse
 import glob
@@ -273,7 +269,7 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         description=textwrap.dedent('''\
             Transcode a bunch of videos into smaller proxy video files 
-            for easier viewing and editing, without doing work multiple times.
+            for easier viewing and editing, without redoing files unnecessarily.
             
             Safety first: 
             Pass the --go option to actually run the generated transcoder commands!
@@ -367,6 +363,10 @@ def main():
     print('---------------------------------------------------------------------')
     print()
 
+    if 0 == len(transcode_commands):
+        print("Looks like you've already transcoded everything, nothing left to do!")
+        return
+
     [print(c["command"]) for c in transcode_commands]
 
     if not args.go:
@@ -403,7 +403,8 @@ def main():
         # (stdout_data, stderr_data) = process.communicate()
 
         # Set the Date Modified value of the transcoded file to that of the input file
-        print("Set transcoded file's Date Modified to {0}".format(time.ctime(c["modified_time"])))
+        print("Set transcoded file Date Modified value to {0}".format(time.ctime(c["modified_time"])))
+        print()
         os.utime(c["output_file_name"], (c["modified_time"], c["modified_time"]))
 
 
