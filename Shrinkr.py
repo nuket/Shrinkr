@@ -62,6 +62,7 @@ import itertools
 import json
 import logging
 import os
+import shutil
 import subprocess
 import sys
 import textwrap
@@ -82,15 +83,6 @@ SHRINKR_OUTPUT_PROFILES_FILENAME = 'ShrinkrOutputProfiles.json'
 
 SHRINKR_OUTPUT_FILE_SUFFIX = 'shrinkr'
 
-
-# def get_cached_file_info(filename):
-#     if filename in file_info_cache.keys():
-#         if 'datetime' in file_info_cache[filename].keys():
-#             if (os.path.getmtime(filename) == file_info_cache[filename]['datetime']):
-#                 if 'ffprobe_data' in file_info_cache[filename].keys():
-#                     return file_info_cache[filename]['ffprobe_data']
-#
-#     return {}
 
 def convert_utvideo_duration_to_float(duration):
     # Example: '00:00:15.066000000' needs to be converted to float
@@ -179,19 +171,6 @@ def get_output_file_name(input_file_name, output_profile, output_container):
     return output_file_name
 
 
-# def file_needs_transcoding(input_file_name, output_profiles, output_containers):
-#     input_file_info = get_file_info(input_file_name)
-
-
-
-#     output_file_name = get_output_file_name(input_file_name, output_profile, output_container)
-
-#     if not os.path.isfile(output_file_name) or (float(get_file_info(output_file_name)['duration']) < float(get_file_info(input_file_name)['duration'])):
-#         return True
-
-#     return False
-
-
 def sum_up(input_file_names):
     sum = 0
 
@@ -228,7 +207,6 @@ def generate_transcode_commands(input_file_names, cache, target_output_profiles,
                 output_duration = get_file_duration(output_file_name, cache)
 
                 if not os.path.isfile(output_file_name) or (output_duration < input_duration):
-                    # transcode_commands.append(transcode_command)
                     transcode_commands.append({"command": transcode_command, "modified_time": os.path.getmtime(input_file_name), "output_file_name": output_file_name})
                 else:
                     print('File "{input}" has already been transcoded to {profile}'.format(input=input_file_name, profile=profile))
@@ -289,6 +267,18 @@ def main():
         logging.basicConfig(level=logging.DEBUG)
     else:
         logging.basicConfig(level=logging.INFO)
+
+    # Check for ffmpeg in the PATH
+
+    print()
+    print('Shrinkr -------------------------------------------------------------')
+    print('Check for presence of ffmpeg on PATH')
+    print('---------------------------------------------------------------------')
+    print()
+
+    if not shutil.which('ffmpeg'):
+        print("Couldn't find ffmpeg, so we cannot proceed")
+        return
 
     # Load up the jobs file, which defines folders to search for input files
 
