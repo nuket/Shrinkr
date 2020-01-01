@@ -235,7 +235,7 @@ def generate_transcode_commands(input_file_names, cache, target_output_profiles,
                     # transcode_commands.append(transcode_command)
                     transcode_commands.append({"command": transcode_command, "modified_time": os.path.getmtime(input_file_name), "output_file_name": output_file_name})
                 else:
-                    logging.info('File "{input}" has already been transcoded to {profile}'.format(input=input_file_name, profile=profile))
+                    print('File "{input}" has already been transcoded to {profile}'.format(input=input_file_name, profile=profile))
             else:
                 logging.warning('Profile "{profile}" not a valid profile in {profile_defs_file}.', profile=profile, profile_defs_file=SHRINKR_OUTPUT_PROFILES_FILENAME)
                 
@@ -296,13 +296,16 @@ def main():
 
     # Load up the jobs file, which defines folders to search for input files
 
+    job = json.load(open(args.jobfile))
+
     print()
     print('Shrinkr -------------------------------------------------------------')
-    print('Finding input files in folders defined in {0}'.format(args.jobfile))
+    print("Find all input files specified via the '{0}' jobfile".format(args.jobfile))
+    print('with folders    {0}'.format(job['input_folders']))
+    print('with extensions {0}'.format(job['input_exts']))
+    # print('that match Codec and Resolution selectors')
     print('---------------------------------------------------------------------')
     print()
-
-    job = json.load(open(args.jobfile))
 
     # Input file selectors
 
@@ -343,11 +346,20 @@ def main():
     #
     # number of output files = (number of input files * number of desired output profiles) - number of already transcoded files
 
+    print()
+    print('Shrinkr -------------------------------------------------------------')
+    print('Generate transcode commands, check which output files already exist')
+    print()
+    print("Obviously we won't need to transcode those files again if they match")
+    print('the input file duration')
+    print('---------------------------------------------------------------------')
+    print()
+
     start = time.perf_counter()
     transcode_commands = generate_transcode_commands(filtered_input_file_names, file_info_cache, job['output_profiles'], output_profile_defs)
     end = time.perf_counter()
 
-    logging.debug('Generate transcode commands in {0} seconds'.format(end - start))
+    logging.debug('Generated transcode commands in {0} seconds'.format(end - start))
 
     print()
     print('Shrinkr -------------------------------------------------------------')
