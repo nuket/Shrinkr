@@ -96,6 +96,12 @@ SHRINKR_OUTPUT_FILE_SUFFIX = 'shrinkr'
 #
 #     return {}
 
+def convert_utvideo_duration_to_float(duration):
+    # Example: '00:00:15.066000000' needs to be converted to float
+    hrs, mins, seconds = str(duration).split(':', 2)
+
+    return float(hrs) * 3600.0 + float(mins) * 60.0 + float(seconds)
+
 
 def get_cached_file_info(filename, cache):
     try:
@@ -115,6 +121,8 @@ def get_file_info(filename, cache):
     file_info['width']      = 'Unknown'
     file_info['height']     = 'Unknown'
     file_info['duration']   = 0
+
+    print('Getting file info for "{0}"'.format(filename))
 
     stream_info = get_cached_file_info(filename, cache)
 
@@ -145,10 +153,15 @@ def get_file_info(filename, cache):
         file_info['width']        = this_file['width']
         file_info['height']       = this_file['height']
 
-        try:
+        # Duration depends on what type of file it is.
+        #
+        # utvideo files have duration stored in ["tags"]["DURATION"] key
+        # mp4 files have it in ['duration'] key
+
+        if file_info['codec_name'] == 'utvideo':
+            file_info['duration'] = convert_utvideo_duration_to_float(this_file['tags']['DURATION'])
+        else:
             file_info['duration'] = this_file['duration']
-        except:
-            pass
 
     return file_info
 
@@ -219,7 +232,8 @@ def generate_transcode_commands(input_file_names, cache, target_output_profiles,
                 output_duration = get_file_duration(output_file_name, cache)
 
                 if not os.path.isfile(output_file_name) or (output_duration < input_duration):
-                    transcode_commands.append(transcode_command)
+                    # transcode_commands.append(transcode_command)
+                    transcode_commands.append({"command": transcode_command, "modified_time": os.path.getmtime(input_file_name), "output_file_name": output_file_name})
                 else:
                     logging.info('File "{input}" has already been transcoded to {profile}'.format(input=input_file_name, profile=profile))
             else:
@@ -236,8 +250,11 @@ def main():
 
     file_info_cache = {}
 
-    with open(SHRINKR_CACHE_FILENAME) as cache_fp:
-        file_info_cache = json.load(cache_fp)
+    try:
+        with open(SHRINKR_CACHE_FILENAME) as cache_fp:
+            file_info_cache = json.load(cache_fp)
+    except FileNotFoundError:
+        pass
 
     # Output file profiles
     #
@@ -264,8 +281,8 @@ def main():
     parser.add_argument('--go', action='store_true', help='actually run the transcoder commands (default: %(default)s)')
     parser.add_argument('--jobfile', default='ShrinkrJob.json', help='specify other jobfile (default: %(default)s)')
     parser.add_argument('-v', default=0, type=int, help='set the debug output level (0 = INFO, 1 = DEBUG) (default: %(default)s)')
-    parser.add_argument('--sum-durations', action='store_true', help='Sum up the durations of all the input files')
-    parser.add_argument('--fix-timestamps', action='store_true', help='go through and set the timestamps of the transcoded files to the timestamps of the original files')
+    # parser.add_argument('--sum-durations', action='store_true', help='Sum up the durations of all the input files (default: %(default)s)')
+    # parser.add_argument('--fix-timestamps', action='store_true', help='go through and set the timestamps of the transcoded files to the timestamps of the original files (default: %(default)s)')
 
     if len(sys.argv[1:]) == 0:
         parser.print_help()
@@ -276,6 +293,14 @@ def main():
         logging.basicConfig(level=logging.DEBUG)
     else:
         logging.basicConfig(level=logging.INFO)
+
+    # Load up the jobs file, which defines folders to search for input files
+
+    print()
+    print('Shrinkr -------------------------------------------------------------')
+    print('Finding input files in folders defined in {0}'.format(args.jobfile))
+    print('---------------------------------------------------------------------')
+    print()
 
     job = json.load(open(args.jobfile))
 
@@ -296,9 +321,9 @@ def main():
     input_file_names.sort()
 
     # What's the total duration of all the files to be transcoded?
-    if args.sum_durations:
-        logging.info('Total duration of files is: {0} seconds'.format(sum_up(input_file_names)))
-        return
+    # if args.sum_durations:
+    #     logging.info('Total duration of files is: {0} seconds'.format(sum_up(input_file_names)))
+    #     return
 
     # Start checking the list of input files and only keep the ones that 
     # match the input selectors
@@ -306,30 +331,68 @@ def main():
     # Duration: 00:01:04.29, start: 0.000000, bitrate: 100072 kb/s
     # Stream #0:0(eng): Video: hevc (Main) (hvc1 / 0x31637668), yuvj420p(pc, smpte170m), 3840x2160, 100024 kb/s, SAR 1:1 DAR 16:9, 30.02 fps, 30 tbr, 90k tbn, 90k tbc (default)
 
-    start = time.perf_counter()
-
     # Filter out the input files that don't match the Codec or Height we want to transcode
 
+    start = time.perf_counter()
     filtered_input_file_names = [x for x in input_file_names if file_matches_selectors(x, file_info_cache, job['select_codecs'], job['select_heights'])]
-
     end = time.perf_counter()
-    logging.debug(end - start)
+
+    logging.debug('Load and filter input files in {0} seconds'.format(end - start))
 
     # Create a list of input -> output transcoder commands based on desired output profiles and containers
     #
     # number of output files = (number of input files * number of desired output profiles) - number of already transcoded files
 
+    start = time.perf_counter()
     transcode_commands = generate_transcode_commands(filtered_input_file_names, file_info_cache, job['output_profiles'], output_profile_defs)
+    end = time.perf_counter()
+
+    logging.debug('Generate transcode commands in {0} seconds'.format(end - start))
+
+    print()
+    print('Shrinkr -------------------------------------------------------------')
+    print('{0} -- these are the transcoding commands that {1} be executed:'.format(('Dry Run', 'Execute')[args.go], ('would', 'will')[args.go]))
+    print('---------------------------------------------------------------------')
+    print()
+
+    [print(c["command"]) for c in transcode_commands]
 
     if not args.go:
-        print()
-        print('Shrinkr -------------------------------------------------------------')
-        print('Dry Run -- these are the transcoding commands that would be executed:')
-        print('---------------------------------------------------------------------')
-        print()
-        [print(c) for c in transcode_commands]
+        return
 
+    print()
+    print('Shrinkr -------------------------------------------------------------')
+    print('Running Transcodes')
+    print('---------------------------------------------------------------------')
+    print()
 
+    for c in transcode_commands:
+        print("Running: {0}".format(c["command"]))
+        command = c["command"].split(' ')
+        process_output = subprocess.run(args=command, capture_output=True)
+
+        logging.debug(process_output)
+
+        if process_output.returncode == 0:
+            print("Done")
+        else:
+            # TODO: 
+            # Make a note about this in the output file extension, rendering it
+            # unplayable when doubleclicked.
+            # 
+            # When doing this, also need to add code to check for -error output
+            # files when checking whether this file has already been transcoded.
+            print("Error")
+            # error_file_name = c["output_file_name"] + "-error" # i.e. .mp4-error or .mkv-error
+            # os.rename(c["output_file_name"], error_file_name)
+            # c["output_file_name"] = error_file_name
+
+        # process = subprocess.Popen(args=command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, universal_newlines=True),
+        # (stdout_data, stderr_data) = process.communicate()
+
+        # Set the Date Modified value of the transcoded file to that of the input file
+        print("Set transcoded file's Date Modified to {0}".format(time.ctime(c["modified_time"])))
+        os.utime(c["output_file_name"], (c["modified_time"], c["modified_time"]))
 
 
 if __name__ == '__main__':
