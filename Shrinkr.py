@@ -372,7 +372,7 @@ def main():
         logging.debug(process_output)
 
         if process_output.returncode == 0:
-            print("Done in {0} seconds.".format(end - start))
+            print("Done in {:0.6f} seconds.".format(end - start))
         else:
             # TODO: 
             # Make a note about this in the output file extension, rendering it
