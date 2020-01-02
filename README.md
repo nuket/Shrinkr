@@ -239,7 +239,7 @@ even a beefy CPU will have trouble smoothly playing back H.265 / HEVC-encoded vi
 
 ```
 Shrinkr Batch Transcode
-Copyright (c) 2019 - 2020 Max Vilimpoc (https://vilimpoc.org)
+Copyright (c) 2019 - 2020 Max Vilimpoc (https://fromplantoprototype.com)
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
