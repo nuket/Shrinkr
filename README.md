@@ -1,4 +1,4 @@
-<span style="display: block; text-align:center;"><img src="ShrinkrLogo.svg"/></span>
+![Shrinkr Logo](ShrinkrLogo.svg)
 # Shrinkr Batch Transcode
 
 This Python script batch transcodes a source set of video files to a target set 
@@ -21,10 +21,12 @@ optional arguments:
                      (default: 0)
 ```
 
-If the transcoded video file already exists and matches the duration of the source
-video file, then this script will not do the transcode again, which means you
-can run this script over and over again on a folder and only the new files that 
-need conversion will be processed.
+_This script will not repeat the transcode if the output video file 
+exists and matches the duration of the source video file_. 
+You can run this script over and over again on a folder and only 
+the new files that need conversion will be processed.
+
+![Automatically convert HEVC to H.264, MagicYUV, DNxHD, UTVideo, and more](ShrinkrOp.svg)
 
 ## 5 Steps
 
