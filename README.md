@@ -56,11 +56,15 @@ Codec(s) and Resolution(s).
 
 The script will set the Last Modified time of each transcoded video file 
 to the timestamp from the source video file, so that sorting by Date Modified 
-in Windows Explorer, macOS Finder, or GNOME Files will also show the two files next to one another.
+in Windows Explorer, macOS Finder, or GNOME Files will also show the two files 
+next to one another.
 
 ![File listing in Windows Explorer](images/ShrinkrSort.png)
 
-(Windows Explorer has odd behavior, though. The default "Date" column adds in Daylight Savings Time, _which makes for a confusing and inconsistent view of the world_. I seriously don't know what Microsoft is telling me here, because the actual `mtime` value is the same. The "Date modified" column is fine, though.)
+(Windows Explorer has odd behavior, though. The default "Date" column adds 
+in Daylight Savings Time, _which makes for a confusing and inconsistent view of the world_. 
+I seriously don't know what Microsoft is telling me here, because the 
+actual `mtime` value is the same. The "Date modified" column shows things correctly, though.)
 
 ## Job File
 
@@ -89,13 +93,16 @@ path on both Windows, Linux, and macOS.
 
 `select_heights`: The list of input video heights to transcode.
 
-`output_profiles`: The list of target transcoding profiles defined in the `ShrinkrOutputProfiles.json` file.
+`output_profiles`: The list of target transcoding profiles defined 
+in the `ShrinkrOutputProfiles.json` file.
 
-To tell Shrinkr to load a custom Job File, use the command-line option `--jobfile YourCustomJob.json`.
+To tell Shrinkr to load a custom Job File, use the command-line 
+option `--jobfile YourCustomJob.json`.
 
 ## Sample Output
 
-By default, `Shrinkr.py` will load the default job file `ShrinkrJob.json` and process its specified files.
+By default, `Shrinkr.py` will load `ShrinkrJob.json` and process 
+its specified files.
 
 ```
 C:\Shrinkr>\Python37\python.exe Shrinkr.py --go
@@ -234,7 +241,8 @@ This script lets me more easily trade storage for processing time.
 and preserve completed files, it is all-or-nothing when using *.mp4-style globs.
 
 This script gives a little more flexibility when trying to transcode files down
-to editable or even viewable sizes. Without [Gen 9 Intel Graphics](https://en.wikipedia.org/wiki/Intel_Graphics_Technology#Capabilities_(GPU_video_acceleration)), 
+to editable or even viewable sizes. Without 
+[Gen 9 Intel Graphics](https://en.wikipedia.org/wiki/Intel_Graphics_Technology#Capabilities_(GPU_video_acceleration)), 
 [Nvidia PureVideo 7](https://en.wikipedia.org/wiki/Nvidia_PureVideo#The_seventh_generation_PureVideo_HD), 
 or [AMD Unified Video Decoder 6](https://en.wikipedia.org/wiki/Unified_Video_Decoder#UVD_6) fixed-function hardware acceleration, 
 even a beefy CPU will have trouble smoothly playing back H.265 / HEVC-encoded video.

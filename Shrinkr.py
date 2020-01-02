@@ -194,7 +194,7 @@ def generate_transcode_commands(input_file_names, cache, target_output_profiles,
                 output_duration = get_file_duration(output_file_name, cache)
 
                 if not os.path.isfile(output_file_name) or (output_duration < input_duration):
-                    transcode_commands.append({"command": transcode_command, "modified_time": os.path.getmtime(input_file_name), "output_file_name": output_file_name})
+                    transcode_commands.append({"command": transcode_command, "modified_time": os.path.getmtime(input_file_name), "duration": input_duration, "output_file_name": output_file_name})
                 else:
                     print('File "{input}" has already been transcoded to {profile}'.format(input=input_file_name, profile=profile))
             else:
@@ -364,12 +364,15 @@ def main():
     for c in transcode_commands:
         print("Running: {0}".format(c["command"]))
         command = c["command"].split(' ')
+
+        start = time.perf_counter()
         process_output = subprocess.run(args=command, capture_output=True)
+        end = time.perf_counter()
 
         logging.debug(process_output)
 
         if process_output.returncode == 0:
-            print("Done")
+            print("Done in {0} seconds.".format(end - start))
         else:
             # TODO: 
             # Make a note about this in the output file extension, rendering it
