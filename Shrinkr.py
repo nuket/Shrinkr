@@ -263,7 +263,9 @@ def main():
     print('---------------------------------------------------------------------')
     print()
 
-    if not shutil.which('ffmpeg'):
+    if shutil.which('ffmpeg'):
+        print("Found ffmpeg command, good to go")
+    else:
         print("Couldn't find ffmpeg, so we cannot proceed")
         return
 
@@ -274,9 +276,13 @@ def main():
     print()
     print('Shrinkr -------------------------------------------------------------')
     print("Find all input files specified via the '{0}' jobfile".format(args.jobfile))
+    print()
     print('with folders    {0}'.format(job['input_folders']))
     print('with extensions {0}'.format(job['input_exts']))
-    # print('that match Codec and Resolution selectors')
+    print('with codecs     {0}'.format(job['select_codecs']))
+    print('with heights    {0}'.format(job['select_heights']))
+    print()
+    print('Convert them to {0} output files'.format(job['output_profiles']))
     print('---------------------------------------------------------------------')
     print()
 
