@@ -60,7 +60,7 @@ in Windows Explorer, macOS Finder, or GNOME Files will also show the two files n
 
 ![File listing in Windows Explorer](images/ShrinkrSort.png)
 
-(There could be a Daylight Savings Time display issue here in Windows Explorer, though.)
+(Windows Explorer has odd behavior, though. The default "Date" column adds in Daylight Savings Time, _which makes for a confusing and inconsistent view of the world_. I seriously don't know what Microsoft is telling me here, because the actual `mtime` value is the same. The "Date modified" column is fine, though.)
 
 ## Job File
 
