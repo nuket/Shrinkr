@@ -193,7 +193,15 @@ def generate_transcode_commands(input_file_names, cache, target_output_profiles,
                 input_duration  = get_file_duration(input_file_name, cache)
                 output_duration = get_file_duration(output_file_name, cache)
 
-                if not os.path.isfile(output_file_name) or (output_duration < input_duration):
+                # Check that the output file duration is within 0.1 seconds
+                # of the input file duration, if it is shorter
+                #
+                # Usually, the output file is slightly longer, i.e. 34.666667 > 34.627189, 45.700000 > 45.673122
+                # However, on rare occasions it is shorter,    i.e. 22.683333 < 22.700967, 16.333333 < 16.351211
+                #
+                # 0.1 seconds is about 2 - 3 frames of input one way or another
+
+                if not os.path.isfile(output_file_name) or (output_duration < (input_duration - 0.1)):
                     transcode_commands.append({"command": transcode_command, "modified_time": os.path.getmtime(input_file_name), "duration": input_duration, "output_file_name": output_file_name})
                 else:
                     print('File "{input}" has already been transcoded to {profile}'.format(input=input_file_name, profile=profile))
