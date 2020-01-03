@@ -353,6 +353,8 @@ def main():
     [print(c["command"]) for c in transcode_commands]
 
     if not args.go:
+        print()
+        print('Add --go to the Shrinkr command line to execute these commands.')
         return
 
     print()
