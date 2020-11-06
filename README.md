@@ -1,5 +1,5 @@
 ![Shrinkr Logo](images/ShrinkrLogo.svg)
-# Shrinkr Batch Transcode
+# Shrinkr Batch Transcode (Python Edition)
 
 This Python script batch transcodes a source set of video files to a target set 
 of proxy video files at a lower resolution.
@@ -227,6 +227,108 @@ Running: ffmpeg -y -i C:\Users\Max\Downloads\Vid\hevc-2160p30-80mbps.mp4 -c:v ut
 Done
 Set transcoded file's Date Modified to Sat Jul 13 16:00:17 2019
 ```
+
+# Shrinkr Batch Transcode (SCons Edition)
+
+The `ShrinkrProxy` and `ShrinkrArchive` [SCons build
+scripts](https://scons.org/) will transcode a source set of video files to a
+target set of proxy or archival video files.
+
+To use them, simply place them in a folder of video files, then run:
+
+```
+scons -f Shrinker{Proxy, Archive}
+```
+
+You'll see something like:
+
+```
+C:\Users\Max\Videos\Captures\test>scons -f ShrinkrArchive
+scons: Reading SConscript files ...
+Checking *.mp4
+Checking *.mkv
+Archive: 20200706-203752-NV12-60fps.mkv -> 20200706-203752-NV12-60fps-archive.mkv
+Archive: 20200706-203937-NV12-60fps.mkv -> 20200706-203937-NV12-60fps-archive.mkv
+Archive: 20200706-204108-NV12-60fps.mkv -> 20200706-204108-NV12-60fps-archive.mkv
+scons: done reading SConscript files.
+scons: Building targets ...
+ffmpeg -benchmark -i 20200706-203752-NV12-60fps.mkv -c:v libx264 -crf 0 -preset veryslow -c:a copy -y 20200706-203752-NV12-60fps-archive.mkv
+
+[... bunch of ffmpeg output ...]
+
+scons: done building targets.
+```
+
+If you run it again, [SCons](https://scons.org/) looks at the timestamps and
+checksums and decides there's nothing more to do:
+
+```
+scons: Reading SConscript files ...
+Checking *.mp4
+Checking *.mkv
+Archive: 20200706-203752-NV12-60fps.mkv -> 20200706-203752-NV12-60fps-archive.mkv
+Archive: 20200706-203937-NV12-60fps.mkv -> 20200706-203937-NV12-60fps-archive.mkv
+Archive: 20200706-204108-NV12-60fps.mkv -> 20200706-204108-NV12-60fps-archive.mkv
+scons: done reading SConscript files.
+scons: Building targets ...
+scons: `.' is up to date.
+scons: done building targets.
+```
+
+Generating and managing proxy files by hand is not necessary for most non-linear
+video editing packages nowadays, so the `ShrinkrProxy` script is only included
+here for completeness. 
+
+Archiving video files using `ShrinkrArchive` allows you to trade CPU time for
+storage. For example, I use the `-preset ultrafast` flag when losslessly
+recording screencasts using [OBS Studio](https://obsproject.com/). This
+generates huge files. But then I postprocess those files for archival, using the
+`-preset veryslow` option in `ffmpeg` to squeeze out as many redundant (low
+entropy) bits as possible for long-term storage.
+
+Here's what the file sizes look like pre- and post-archival:
+
+```
+ Volume in drive C has no label.
+ Volume Serial Number is 4AB3-031B
+
+ Directory of C:\Users\Max\Videos\Captures\test
+
+11/06/2020  03:34 PM    <DIR>          .
+11/06/2020  03:34 PM    <DIR>          ..
+11/06/2020  03:34 PM             2,815 .sconsign.dblite
+11/06/2020  03:05 PM        16,272,779 20200706-203752-NV12-60fps-archive.mkv
+07/06/2020  07:38 PM        50,428,461 20200706-203752-NV12-60fps.mkv
+11/06/2020  03:08 PM        11,622,567 20200706-203937-NV12-60fps-archive.mkv
+07/06/2020  07:40 PM        38,754,440 20200706-203937-NV12-60fps.mkv
+11/06/2020  03:25 PM        77,927,952 20200706-204108-NV12-60fps-archive.mkv
+07/06/2020  07:45 PM       306,824,745 20200706-204108-NV12-60fps.mkv
+11/06/2020  03:41 PM             1,784 ShrinkrArchive
+               8 File(s)    501,835,543 bytes
+               2 Dir(s)  225,023,504,384 bytes free
+```
+
+Savings of 66 - 75% are common for screencasts, which have large amounts of
+low-entropy pixels (lots of solid color blocks), which can be redundantly
+optimized out of the bitstream.
+
+Checking the files with
+[PSNR](https://en.wikipedia.org/wiki/Peak_signal-to-noise_ratio),
+[SSIM](https://en.wikipedia.org/wiki/Structural_similarity), and
+[VMAF](https://en.wikipedia.org/wiki/Video_Multimethod_Assessment_Fusion) after
+archival shows that the files are identical (scores of 100 are basically
+impossible with VMAF, but anything > 97 is subjectively identical):
+
+```
+[Parsed_psnr_1 @ 00000245e3565d40] PSNR y:inf u:inf v:inf average:inf min:inf max:inf
+[Parsed_ssim_0 @ 00000245e35659c0] SSIM Y:1.000000 (inf) U:1.000000 (inf) V:1.000000 (inf) All:1.000000 (inf)
+[libvmaf @ 099c27c0] VMAF score: 97.429299
+```
+
+Leveraging the [SCons](https://scons.org/) build system offers another way to
+quickly specify the files to transcode and ensure that any changes are picked
+up. This means I didn't need to write the original Python Edition above, but
+hindsight is 20/20.
 
 ## Rationale
 
