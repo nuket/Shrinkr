@@ -1,0 +1,79 @@
+# Transcode All Video Files in a Folder to Editing Proxy Files
+#
+# NOTE:
+#
+# This is entirely unnecessary when using Shotcut and most other nonlinear
+# editors now, as they include support for autogenerating proxy files; this
+# build file is here for the historical record only.
+#
+# Run (for a 4 core machine, ignore hyperthreading): 
+# scons -f ShrinkrProxify
+
+import glob
+import os
+import shutil
+
+# Refs:
+# https://trac.ffmpeg.org/wiki/Encode/H.264
+
+# ffmpeg options:
+# 
+# -c:v utvideo      utvideo is a fast editing codec
+# -c:a copy         audio bitstream is passed through
+# -vf  "scale"      scales the video down to env.PROXY_RESOLUTION, 360p should be small enough 
+#                   that video transitions and filters are realtime in a nonlinear editor preview
+
+PROXY_CMD_LOSSLESS = 'ffmpeg -benchmark -i ${SOURCE} -c:v utvideo -c:a copy -vf "scale=-2:${PROXY_RESOLUTION}" -y ${TARGET}'
+PROXY_CMD_LOSSY    = 'ffmpeg -benchmark -i ${SOURCE} -c:v libx264 -c:a copy -vf "scale=-2:${PROXY_RESOLUTION}" -preset ultrafast -g 6 -bf 2 -crf 17 -y ${TARGET}'
+
+def emitProxyTargetName(target, source, env):
+    # Proxy files are stored right next to the original-resolution video file,
+    # but suffixed with '-proxy.mkv'.
+    #
+    # We're always using .mkv containers for the editing codec.
+    #
+    # NOTE: This will make things slightly more difficult when swapping the files 
+    # in and out of the Shotcut .mlt file.
+
+    base, ext = os.path.splitext(str(source[0]))
+    t = '{}-{}.mkv'.format(base, 'proxy')
+    print ('Proxify: {} -> {}'.format(str(source[0]), t))
+    return (t, source)
+
+buildProxyFormat = Builder(
+    action  = PROXY_CMD_LOSSLESS,
+    emitter = emitProxyTargetName
+)
+
+# Find ffmpeg and add that - and only that - path to the build environment.
+#
+# On Linux   use 'which ffmpeg'
+# On Windows use 'where ffmpeg'
+#
+# If ffmpeg isn't in your PATH environment variable and cannot be found,
+# then specify the folder location explicitly here.
+
+ffmpegLocation = shutil.which('ffmpeg')
+
+if ffmpegLocation:
+    ffmpegFolder, ffmpegExe = os.path.split(ffmpegLocation)
+else:
+    ffmpegFolder = ''
+    if ffmpegFolder == '':
+        print('WARNING: Set ffmpegFolder to the location of your ffmpeg executable.')
+
+env = Environment(
+    ENV =  {'PATH': ffmpegFolder},
+    PROXY_RESOLUTION = 360, # 360p resolution with width scaled to preserve aspect ratio
+    BUILDERS = {
+        'Proxify': buildProxyFormat
+    }
+)
+
+# Do all video files in this folder by default
+
+for container in ['*.mp4', '*.mkv']:
+    print('Checking {}'.format(container))
+    for video in glob.glob(container):
+        if 'proxy' not in video:
+            env.Proxify(video)

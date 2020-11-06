@@ -1,0 +1,59 @@
+# Transcode All Video Files in a Folder to Archival Files
+#
+# Run: scons -f ShrinkrArchive
+
+import glob
+import os
+import shutil
+
+# Refs:
+# https://trac.ffmpeg.org/wiki/Encode/H.264
+
+ARCHIVE_CMD_LOSSLESS    = 'ffmpeg -benchmark -i ${SOURCE} -c:v libx264 -crf 0 -preset veryslow -c:a copy -y ${TARGET}'
+ARCHIVE_FILENAME_SUFFIX = '-archive'
+
+def emitArchiveTargetName(target, source, env):
+    # Archive files are stored right next to the original-resolution video file,
+    # but suffixed with '-archive'.
+
+    base, ext = os.path.splitext(str(source[0]))
+    t = '{}{}{}'.format(base, ARCHIVE_FILENAME_SUFFIX, ext)
+    print ('Archive: {} -> {}'.format(str(source[0]), t))
+    return (t, source)
+
+buildArchiveFormat = Builder(
+    action  = ARCHIVE_CMD_LOSSLESS,
+    emitter = emitArchiveTargetName
+)
+
+# Find ffmpeg and add that - and only that - path to the build environment.
+#
+# On Linux   use 'which ffmpeg'
+# On Windows use 'where ffmpeg'
+#
+# If ffmpeg isn't in your PATH environment variable and cannot be found,
+# then specify the folder location explicitly here.
+
+ffmpegLocation = shutil.which('ffmpeg')
+
+if ffmpegLocation:
+    ffmpegFolder, ffmpegExe = os.path.split(ffmpegLocation)
+else:
+    ffmpegFolder = ''
+    if ffmpegFolder == '':
+        print('WARNING: Set ffmpegFolder to the location of your ffmpeg executable.')
+
+env = Environment(
+    ENV =  {'PATH': ffmpegFolder},
+    BUILDERS = {
+        'Archive': buildArchiveFormat
+    }
+)
+
+# Do all video files in this folder by default
+
+for container in ['*.mp4', '*.mkv']:
+    print('Checking {}'.format(container))
+    for video_filename in glob.glob(container):
+        if ARCHIVE_FILENAME_SUFFIX not in video_filename:
+            env.Archive(video_filename)
