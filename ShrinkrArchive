@@ -1,5 +1,7 @@
 # Transcode All Video Files in a Folder to Archival Files
 #
+# Go to the folder containing the files you want to transcode.
+#
 # Run: scons -f ShrinkrArchive
 
 import glob
@@ -11,6 +13,8 @@ import shutil
 
 ARCHIVE_CMD_LOSSLESS    = 'ffmpeg -benchmark -i ${SOURCE} -c:v libx264 -crf 0 -preset veryslow -c:a copy -y ${TARGET}'
 ARCHIVE_FILENAME_SUFFIX = '-archive'
+
+INPUT_FILE_GLOB         = ['*.mp4', '*.mkv']
 
 def emitArchiveTargetName(target, source, env):
     # Archive files are stored right next to the original-resolution video file,
@@ -50,9 +54,10 @@ env = Environment(
     }
 )
 
-# Do all video files in this folder by default
+# Do all video files in the current folder by default, or those specified
+# in the INPUT_FILE_GLOB.
 
-for container in ['*.mp4', '*.mkv']:
+for container in INPUT_FILE_GLOB:
     print('Checking {}'.format(container))
     for video_filename in glob.glob(container):
         if ARCHIVE_FILENAME_SUFFIX not in video_filename:

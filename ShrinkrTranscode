@@ -1,0 +1,61 @@
+# Transcode All Video Files in a Folder to 1080p Files
+#
+# Run: scons -f Shrinkr1080p
+
+import glob
+import os
+import shutil
+
+# Refs:
+# https://trac.ffmpeg.org/wiki/Encode/H.264
+
+TRANSCODE_CMD             = 'ffmpeg -benchmark -i ${SOURCE} -vf "scale=-2:1080" -c:v libx264 -crf 17 -preset medium -c:a copy -y ${TARGET}'
+TRANSCODE_FILENAME_SUFFIX = '-1080p'
+
+INPUT_FILE_EXTS           = ['*.mp4', '*.mkv']
+
+def emitTranscodeTargetName(target, source, env):
+    # Transcode files are stored right next to the original-resolution video file,
+    # but suffixed with TRANSCODE_FILENAME_SUFFIX.
+
+    base, ext = os.path.splitext(str(source[0]))
+    t = '{}{}{}'.format(base, TRANSCODE_FILENAME_SUFFIX, ext)
+    print ('Transcode: {} -> {}'.format(str(source[0]), t))
+    return (t, source)
+
+buildTranscodeFormat = Builder(
+    action  = TRANSCODE_CMD,
+    emitter = emitTranscodeTargetName
+)
+
+# Find ffmpeg and add that - and only that - path to the build environment.
+#
+# On Linux   use 'which ffmpeg'
+# On Windows use 'where ffmpeg'
+#
+# If ffmpeg isn't in your PATH environment variable and cannot be found,
+# then specify the folder location explicitly here.
+
+ffmpegLocation = shutil.which('ffmpeg')
+
+if ffmpegLocation:
+    ffmpegFolder, ffmpegExe = os.path.split(ffmpegLocation)
+else:
+    ffmpegFolder = ''
+    if ffmpegFolder == '':
+        print('WARNING: Set ffmpegFolder to the location of your ffmpeg executable.')
+
+env = Environment(
+    ENV =  {'PATH': ffmpegFolder},
+    BUILDERS = {
+        'Transcode': buildTranscodeFormat
+    }
+)
+
+# Do all video files in this folder by default
+
+for container in INPUT_FILE_EXTS:
+    print('Checking {}'.format(container))
+    for video_filename in glob.glob(container):
+        if TRANSCODE_FILENAME_SUFFIX not in video_filename:
+            env.Transcode(video_filename)
