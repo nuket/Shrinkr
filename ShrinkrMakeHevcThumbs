@@ -1,0 +1,65 @@
+# Windows Explorer doesn't necessarily support HEVC videos or losslessly-encoded
+# screencasts, so I use this to generate thumbnails.
+#
+# Run: scons -f ShrinkrMakeHevcThumbs
+
+import glob
+import os
+import shutil
+import subprocess
+
+# Refs:
+# https://trac.ffmpeg.org/wiki/Encode/H.264
+
+THUMBNAIL_CMD             = 'ffmpeg -benchmark -i ${SOURCE} -frames:v 1 -q:v 1 -y ${TARGET}'
+
+INPUT_FILE_EXTS           = ['*.mp4', '*.mkv']
+
+def emitThumbnailTargetName(target, source, env):
+    # Thumbnail files are stored right next to the original-resolution video
+    # file, as JPEGs.
+
+    base, ext = os.path.splitext(str(source[0]))
+    ext = '.jpg' # Force output to be JPEG.
+
+    t = '{}{}'.format(base, ext)
+    print ('Thumbnail: {} -> {}'.format(str(source[0]), t))
+    return (t, source)
+
+buildThumbnail = Builder(
+    action  = THUMBNAIL_CMD,
+    emitter = emitThumbnailTargetName
+)
+
+# Find ffmpeg and add that - and only that - path to the build environment.
+#
+# On Linux   use 'which ffmpeg'
+# On Windows use 'where ffmpeg'
+#
+# If ffmpeg isn't in your PATH environment variable and cannot be found,
+# then specify the folder location explicitly here.
+
+ffmpegLocation = shutil.which('ffmpeg')
+
+if ffmpegLocation:
+    ffmpegFolder, ffmpegExe = os.path.split(ffmpegLocation)
+else:
+    ffmpegFolder = ''
+    if ffmpegFolder == '':
+        print('WARNING: Set ffmpegFolder to the location of your ffmpeg executable.')
+
+env = Environment(
+    ENV =  {'PATH': ffmpegFolder},
+    BUILDERS = {
+        'Thumbnail': buildThumbnail
+    }
+)
+
+# Do all video files in this folder by default
+
+for container in INPUT_FILE_EXTS:
+    print('Checking {}'.format(container))
+    for video_filename in glob.glob(container):
+        result = subprocess.run(['ffprobe', video_filename], capture_output=True, text=True)
+        if ("Video: hevc" in result.stderr) or ("Video: h264 (High 4:4:4 Predictive)" in result.stderr):
+            env.Thumbnail(video_filename)
